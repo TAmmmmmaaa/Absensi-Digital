@@ -1,0 +1,1195 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Buku Presensi Digital</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
+<style>
+  :root{
+    --paper:#FAF6EC;
+    --paper-deep:#F1EADA;
+    --rule:#DCD2B8;
+    --ink:#26221A;
+    --ink-soft:#5B5646;
+    --navy:#1F3A5F;
+    --navy-dark:#152840;
+    --gold:#A6791F;
+    --gold-soft:#E9D9AE;
+    --green:#2F6F4E;
+    --green-soft:#DCEAE1;
+    --rust:#A3402F;
+    --rust-soft:#F2DFD8;
+    --radius:3px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;height:100%;}
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'Inter',sans-serif;
+    display:flex;
+    flex-direction:column;
+    min-height:100vh;
+  }
+
+  /* ---------- Top tab bar ---------- */
+  .spine{
+    width:100%;
+    background:linear-gradient(90deg,var(--navy) 0%,var(--navy-dark) 100%);
+    display:flex;
+    align-items:center;
+    padding:14px 28px;
+    flex-shrink:0;
+    position:relative;
+    gap:26px;
+  }
+  .spine::after{
+    content:"";
+    position:absolute;
+    left:0;right:0;bottom:0;
+    height:4px;
+    background:var(--gold);
+    opacity:.7;
+  }
+  .spine-title{
+    color:var(--gold-soft);
+    font-family:'Source Serif 4',serif;
+    font-size:17px;
+    letter-spacing:.04em;
+    font-weight:600;
+    margin-right:10px;
+    white-space:nowrap;
+  }
+  .tab-btn{
+    background:transparent;
+    border:none;
+    color:#B9C6D6;
+    font-family:'Source Serif 4',serif;
+    font-size:15px;
+    padding:9px 20px;
+    cursor:pointer;
+    border-radius:6px 6px 0 0;
+    transition:background .15s, color .15s;
+  }
+  .tab-btn.active{
+    background:var(--paper);
+    color:var(--navy-dark);
+    font-weight:600;
+  }
+  .tab-btn:not(.active):hover{ color:#fff; }
+
+  /* ---------- Main area ---------- */
+  .main{
+    flex:1;
+    padding:36px 44px;
+    max-width:1100px;
+    width:100%;
+    margin:0 auto;
+    overflow-y:auto;
+  }
+  .masthead{
+    display:flex;
+    justify-content:space-between;
+    align-items:baseline;
+    border-bottom:2px solid var(--ink);
+    padding-bottom:14px;
+    margin-bottom:28px;
+  }
+  .masthead h1{
+    font-family:'Source Serif 4',serif;
+    font-size:30px;
+    font-weight:700;
+    margin:0;
+  }
+  .masthead .date{
+    font-family:'JetBrains Mono',monospace;
+    font-size:13px;
+    color:var(--ink-soft);
+  }
+
+  .panel{ display:none; }
+  .panel.active{ display:block; }
+
+  h2.section-title{
+    font-family:'Source Serif 4',serif;
+    font-size:19px;
+    margin:0 0 14px 0;
+    padding-bottom:8px;
+    border-bottom:1px solid var(--rule);
+  }
+
+  /* class list as ledger index */
+  .class-index{
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+    margin-bottom:22px;
+  }
+  .class-chip{
+    border:1px solid var(--ink);
+    background:var(--paper);
+    padding:7px 14px;
+    border-radius:var(--radius);
+    cursor:pointer;
+    font-size:13.5px;
+    font-weight:500;
+  }
+  .class-chip.active{
+    background:var(--navy);
+    color:#fff;
+    border-color:var(--navy);
+  }
+  .class-chip.add{
+    border-style:dashed;
+    color:var(--ink-soft);
+  }
+
+  .card{
+    background:var(--paper);
+    border:1px solid var(--rule);
+    border-radius:var(--radius);
+    padding:22px;
+    margin-bottom:22px;
+  }
+
+  label{ display:block; font-size:12.5px; color:var(--ink-soft); margin-bottom:4px; font-weight:600; }
+  input[type=text],input[type=number],input[type=time],select{
+    width:100%;
+    padding:9px 10px;
+    border:1px solid var(--rule);
+    background:#fff;
+    border-radius:var(--radius);
+    font-family:'Inter',sans-serif;
+    font-size:14px;
+    margin-bottom:14px;
+    color:var(--ink);
+  }
+  input:focus,select:focus{ outline:2px solid var(--navy); outline-offset:1px; }
+
+  .row{ display:flex; gap:14px; }
+  .row > *{ flex:1; }
+
+  button.btn{
+    font-family:'Inter',sans-serif;
+    font-weight:600;
+    font-size:13.5px;
+    padding:10px 18px;
+    border-radius:var(--radius);
+    border:1px solid var(--navy);
+    background:var(--navy);
+    color:#fff;
+    cursor:pointer;
+  }
+  button.btn:hover{ background:var(--navy-dark); }
+  button.btn.secondary{
+    background:transparent;
+    color:var(--navy);
+  }
+  button.btn.secondary:hover{ background:var(--paper-deep); }
+  button.btn.danger{
+    background:transparent;
+    border-color:var(--rust);
+    color:var(--rust);
+  }
+  button.btn:disabled{ opacity:.45; cursor:not-allowed; }
+
+  /* session / QR block */
+  .session-grid{
+    display:grid;
+    grid-template-columns:240px 1fr;
+    gap:28px;
+  }
+  .qr-box{
+    text-align:center;
+  }
+  #qrcode{
+    background:#fff;
+    border:1px solid var(--rule);
+    padding:12px;
+    border-radius:var(--radius);
+    display:inline-block;
+  }
+  .token-timer{
+    margin-top:10px;
+    font-family:'JetBrains Mono',monospace;
+    font-size:12px;
+    color:var(--ink-soft);
+  }
+  .token-bar{
+    height:4px;
+    background:var(--rule);
+    border-radius:2px;
+    margin-top:6px;
+    overflow:hidden;
+  }
+  .token-bar-fill{
+    height:100%;
+    background:var(--gold);
+    width:100%;
+    transition:width 1s linear;
+  }
+  .fallback-code{
+    margin-top:10px;
+    font-family:'JetBrains Mono',monospace;
+    letter-spacing:.15em;
+    font-size:20px;
+    font-weight:600;
+    color:var(--navy);
+  }
+
+  /* stats */
+  .stats{
+    display:grid;
+    grid-template-columns:repeat(4,1fr);
+    gap:14px;
+    margin-bottom:6px;
+  }
+  .stat{
+    border:1px solid var(--rule);
+    border-radius:var(--radius);
+    padding:14px 16px;
+    background:var(--paper-deep);
+  }
+  .stat .num{ font-family:'Source Serif 4',serif; font-size:26px; font-weight:700; }
+  .stat .lbl{ font-size:11.5px; color:var(--ink-soft); text-transform:uppercase; letter-spacing:.06em; }
+  .stat.hadir .num{ color:var(--green); }
+  .stat.telat .num{ color:var(--rust); }
+
+  /* table */
+  table{
+    width:100%;
+    border-collapse:collapse;
+    font-size:13.5px;
+    background:repeating-linear-gradient(var(--paper),var(--paper) 37px, var(--paper-deep) 38px, var(--paper) 39px);
+  }
+  th{
+    text-align:left;
+    padding:8px 10px;
+    border-bottom:2px solid var(--ink);
+    font-size:11.5px;
+    text-transform:uppercase;
+    letter-spacing:.05em;
+    color:var(--ink-soft);
+  }
+  td{
+    padding:8px 10px;
+    border-bottom:1px solid var(--rule);
+  }
+  .badge{
+    display:inline-block;
+    padding:2px 9px;
+    border-radius:10px;
+    font-size:11.5px;
+    font-weight:600;
+  }
+  .badge.hadir{ background:var(--green-soft); color:var(--green); }
+  .badge.telat{ background:var(--rust-soft); color:var(--rust); }
+
+  .toolbar{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:12px;
+    gap:12px;
+  }
+  .toolbar input{ margin-bottom:0; max-width:240px; }
+
+  .empty-note{
+    text-align:center;
+    padding:26px;
+    color:var(--ink-soft);
+    font-size:13.5px;
+    font-style:italic;
+  }
+
+  /* scanner */
+  #reader{
+    width:100%;
+    max-width:320px;
+    border-radius:var(--radius);
+    overflow:hidden;
+    border:1px solid var(--rule);
+  }
+  .scan-status{
+    margin-top:12px;
+    font-size:13.5px;
+    padding:10px 14px;
+    border-radius:var(--radius);
+    display:none;
+  }
+  .scan-status.ok{ display:block; background:var(--green-soft); color:var(--green); }
+  .scan-status.err{ display:block; background:var(--rust-soft); color:var(--rust); }
+
+  .history-item{
+    display:flex;
+    justify-content:space-between;
+    padding:9px 0;
+    border-bottom:1px solid var(--rule);
+    font-size:13.5px;
+  }
+
+  /* schedule banner */
+  .banner{
+    padding:10px 14px;
+    border-radius:var(--radius);
+    font-size:13px;
+    margin-bottom:16px;
+    border:1px solid var(--gold);
+    background:var(--gold-soft);
+    color:#5C4415;
+  }
+  .banner.ok{ border-color:var(--green); background:var(--green-soft); color:var(--green); }
+
+  /* day checkboxes */
+  .day-picker{ display:flex; gap:6px; flex-wrap:wrap; margin-bottom:14px; }
+  .day-picker label{
+    display:inline-flex; align-items:center; gap:5px;
+    border:1px solid var(--rule); border-radius:14px;
+    padding:5px 11px; font-size:12.5px; font-weight:500; color:var(--ink);
+    cursor:pointer; margin-bottom:0; background:#fff;
+  }
+  .day-picker input{ width:auto; margin:0; }
+
+  /* weekly trend chart */
+  .trend-chart{ display:flex; align-items:flex-end; gap:10px; height:140px; padding-top:10px; }
+  .trend-col{ flex:1; display:flex; flex-direction:column; align-items:center; height:100%; justify-content:flex-end; }
+  .trend-bar{ width:100%; max-width:34px; display:flex; flex-direction:column-reverse; border-radius:2px 2px 0 0; overflow:hidden; }
+  .trend-bar .seg-hadir{ background:var(--green); }
+  .trend-bar .seg-telat{ background:var(--gold); }
+  .trend-bar .seg-alpha{ background:var(--rust); }
+  .trend-label{ font-size:10.5px; color:var(--ink-soft); margin-top:6px; text-align:center; }
+  .legend{ display:flex; gap:14px; font-size:11.5px; color:var(--ink-soft); margin-top:10px; }
+  .legend span{ display:inline-flex; align-items:center; gap:5px; }
+  .legend i{ width:9px; height:9px; border-radius:2px; display:inline-block; }
+
+  /* calendar */
+  .cal-grid{ display:grid; grid-template-columns:repeat(7,1fr); gap:5px; margin-top:10px; }
+  .cal-dow{ font-size:10.5px; color:var(--ink-soft); text-align:center; font-weight:600; }
+  .cal-cell{
+    aspect-ratio:1; border-radius:3px; display:flex; align-items:center; justify-content:center;
+    font-size:11.5px; color:#fff; background:var(--rule); position:relative;
+  }
+  .cal-cell.blank{ background:transparent; }
+  .cal-cell.hadir{ background:var(--green); }
+  .cal-cell.telat{ background:var(--gold); }
+  .cal-cell.alpha{ background:var(--rust); }
+  .cal-cell.pending{ background:#fff; color:var(--ink-soft); border:1px dashed var(--rule); }
+  .cal-cell.na{ background:var(--paper-deep); color:var(--ink-soft); }
+
+  .geo-note{ font-size:12px; color:var(--ink-soft); margin:-8px 0 14px 0; }
+
+  @media (max-width:760px){
+    .session-grid{ grid-template-columns:1fr; }
+    .stats{ grid-template-columns:repeat(2,1fr); }
+    .main{ padding:24px 18px; }
+    .spine{ padding:12px 16px; gap:6px; }
+    .spine-title{ display:none; }
+    .tab-btn{ padding:8px 14px; font-size:13.5px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="spine">
+  <div class="spine-title">PRESENSI DIGITAL</div>
+  <button class="tab-btn active" data-tab="dosen">DOSEN</button>
+  <button class="tab-btn" data-tab="mahasiswa">MAHASISWA</button>
+</div>
+
+<div class="main">
+  <div class="masthead">
+    <h1 id="mastheadTitle">Ruang Dosen</h1>
+    <div class="date" id="todayLabel"></div>
+  </div>
+
+  <!-- ===================== PANEL DOSEN ===================== -->
+  <div class="panel active" id="panel-dosen">
+
+    <h2 class="section-title">Daftar Kelas</h2>
+    <div class="class-index" id="classIndex"></div>
+
+    <div class="card" id="newClassCard" style="display:none;">
+      <div class="row">
+        <div>
+          <label>Nama Mata Kuliah</label>
+          <input type="text" id="newClassName" placeholder="cth. Basis Data Lanjut">
+        </div>
+        <div>
+          <label>Kelas / Rombel</label>
+          <input type="text" id="newClassRombel" placeholder="cth. TI-3A">
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <label>Jam Mulai</label>
+          <input type="time" id="newClassStart" value="08:00">
+        </div>
+        <div>
+          <label>Toleransi Telat (menit)</label>
+          <input type="number" id="newClassTolerance" value="15" min="0">
+        </div>
+      </div>
+      <label>Daftar Mahasiswa (satu baris per mahasiswa, format: <em>NIM, Nama</em>)</label>
+      <textarea id="newClassRoster" rows="6" placeholder="24105111002, ZIKRUL KHALIS&#10;24105111005, SARAH NASYIFA" style="width:100%;padding:9px 10px;border:1px solid var(--rule);border-radius:var(--radius);font-family:'JetBrains Mono',monospace;font-size:12.5px;margin-bottom:10px;"></textarea>
+      <button class="btn secondary" type="button" onclick="fillSampleRoster()" style="margin-bottom:14px;">Isi Otomatis dari Data Absen (28 Mahasiswa)</button>
+      <label>Hari Kelas (jadwal rutin)</label>
+      <div class="day-picker" id="dayPicker">
+        <label><input type="checkbox" value="1"> Senin</label>
+        <label><input type="checkbox" value="2"> Selasa</label>
+        <label><input type="checkbox" value="3"> Rabu</label>
+        <label><input type="checkbox" value="4"> Kamis</label>
+        <label><input type="checkbox" value="5"> Jumat</label>
+        <label><input type="checkbox" value="6"> Sabtu</label>
+        <label><input type="checkbox" value="0"> Minggu</label>
+      </div>
+
+      <label>Verifikasi Lokasi (Geofencing)</label>
+      <p class="geo-note">Kalau diaktifkan, mahasiswa <strong>wajib mengizinkan akses lokasi HP</strong> sebelum bisa absen, dan absen ditolak otomatis jika mereka berada di luar radius ruang kelas.</p>
+      <div class="row">
+        <div>
+          <button class="btn secondary" type="button" onclick="captureClassLocation()">Ambil Lokasi Kelas Sekarang</button>
+          <div id="locationStatus" style="font-size:12px;color:var(--ink-soft);margin-top:6px;">Lokasi belum diatur (geofencing nonaktif)</div>
+        </div>
+        <div>
+          <label>Radius Toleransi (meter)</label>
+          <input type="number" id="newClassRadius" value="100" min="10">
+        </div>
+      </div>
+
+      <button class="btn" onclick="createClass()">Simpan Kelas</button>
+      <button class="btn secondary" onclick="toggleNewClass(false)">Batal</button>
+    </div>
+
+    <div id="dosenEmptyState" class="empty-note">Belum ada kelas. Klik "+ Kelas Baru" untuk memulai.</div>
+
+    <div id="dosenClassArea" style="display:none;">
+
+      <h2 class="section-title">Sesi Hari Ini</h2>
+      <div id="scheduleBanner"></div>
+      <div class="card session-grid">
+        <div class="qr-box">
+          <div id="qrcode"></div>
+          <div class="fallback-code" id="fallbackCode">------</div>
+          <div class="token-timer" id="tokenTimer">QR aktif 15 detik</div>
+          <div class="token-bar"><div class="token-bar-fill" id="tokenBarFill"></div></div>
+        </div>
+        <div>
+          <p style="margin-top:0;color:var(--ink-soft);font-size:13.5px;line-height:1.6;">
+            QR code berganti otomatis setiap 15 detik untuk mencegah screenshot dititipkan ke teman.
+            Jika mahasiswa tidak bisa memindai, mereka bisa memasukkan <strong>kode cadangan</strong> di atas secara manual.
+          </p>
+          <div class="stats" id="statsRow"></div>
+          <button class="btn danger" onclick="resetSessionToday()">Reset Presensi Hari Ini</button>
+        </div>
+      </div>
+
+      <h2 class="section-title">Tren Kehadiran (14 Hari Terakhir)</h2>
+      <div class="card">
+        <div class="trend-chart" id="trendChart"></div>
+        <div class="legend">
+          <span><i style="background:var(--green)"></i>Hadir</span>
+          <span><i style="background:var(--gold)"></i>Telat</span>
+          <span><i style="background:var(--rust)"></i>Alpha</span>
+        </div>
+      </div>
+
+      <h2 class="section-title">Kalender Kehadiran per Mahasiswa</h2>
+      <div class="card">
+        <div class="row">
+          <input type="text" id="dosenCalNim" placeholder="Masukkan NIM mahasiswa">
+          <button class="btn secondary" style="flex:0 0 auto;" onclick="renderDosenCalendar()">Tampilkan</button>
+        </div>
+        <div id="dosenCalWrap"></div>
+      </div>
+
+      <h2 class="section-title">Belum Absen</h2>
+      <div class="card">
+        <div id="notYetList"></div>
+      </div>
+
+      <h2 class="section-title">Rekap Kehadiran</h2>
+      <div class="card">
+        <div class="toolbar">
+          <input type="text" id="searchInput" placeholder="Cari NIM atau nama..." oninput="renderTable()">
+          <button class="btn secondary" onclick="exportCSV()">Unduh CSV</button>
+        </div>
+        <table>
+          <thead>
+            <tr><th>Jam</th><th>NIM</th><th>Nama</th><th>Jurusan</th><th>Status</th></tr>
+          </thead>
+          <tbody id="tableBody"></tbody>
+        </table>
+        <div id="tableEmpty" class="empty-note" style="display:none;">Belum ada mahasiswa yang absen hari ini.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== PANEL MAHASISWA ===================== -->
+  <div class="panel" id="panel-mahasiswa">
+
+    <div class="card">
+      <label>Pilih Mata Kuliah</label>
+      <select id="studentClassSelect" onchange="onStudentClassChange()"></select>
+
+      <div class="row">
+        <div>
+          <label>NIM</label>
+          <input type="text" id="stuNim" placeholder="cth. 21552011">
+        </div>
+        <div>
+          <label>Nama Lengkap</label>
+          <input type="text" id="stuName" placeholder="Nama kamu">
+        </div>
+      </div>
+      <label>Jurusan</label>
+      <input type="text" id="stuJurusan" placeholder="cth. Teknik Informatika">
+    </div>
+
+    <div class="card">
+      <h2 class="section-title" style="margin-top:0;">Pindai QR</h2>
+      <p style="font-size:12.5px;color:var(--ink-soft);margin-top:-6px;">Kamera butuh koneksi HTTPS/hosting untuk bisa aktif. Kalau kamera tidak terbuka, langsung gunakan <strong>Kode Cadangan</strong> di bawah — hasilnya sama persis.</p>
+      <p class="geo-note" id="geoRequirementNote"></p>
+      <button class="btn" id="startScanBtn" onclick="startScan()">Mulai Pindai Kamera</button>
+      <button class="btn secondary" id="stopScanBtn" style="display:none;" onclick="stopScan()">Hentikan</button>
+      <div style="margin-top:14px;" id="reader"></div>
+
+      <div style="margin-top:18px;">
+        <label>Atau masukkan kode cadangan dari dosen</label>
+        <input type="text" id="manualCode" placeholder="mis. 8F2C1A" style="text-transform:uppercase;" onkeydown="if(event.key==='Enter') submitManualCode()">
+        <button class="btn" style="width:100%;" onclick="submitManualCode()">Kirim / Absen Sekarang</button>
+      </div>
+      <div class="scan-status" id="scanStatus"></div>
+    </div>
+
+    <div class="card">
+      <h2 class="section-title" style="margin-top:0;">Riwayat Presensi Saya</h2>
+      <div class="row">
+        <input type="text" id="historyNim" placeholder="Masukkan NIM untuk melihat riwayat">
+        <button class="btn secondary" style="flex:0 0 auto;" onclick="loadHistory()">Cari</button>
+      </div>
+      <div id="historyList"></div>
+      <div id="studentCalWrap" style="margin-top:14px;"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ---------------- Konfigurasi Firebase ---------------- */
+/* WAJIB DIISI kalau website ini di-hosting sendiri (GitHub Pages, Netlify, dll).
+   Kalau masih dibuka lewat pratinjau Claude, biarkan seperti ini -- otomatis
+   memakai penyimpanan bawaan Claude dan Firebase tidak akan dipakai.
+   Cara mendapatkan nilai ini ada di panduan yang saya berikan di chat. */
+const firebaseConfig = {
+  apiKey: "PASTE_API_KEY_DISINI",
+  authDomain: "PASTE_AUTH_DOMAIN_DISINI",
+  projectId: "PASTE_PROJECT_ID_DISINI",
+  storageBucket: "PASTE_STORAGE_BUCKET_DISINI",
+  messagingSenderId: "PASTE_SENDER_ID_DISINI",
+  appId: "PASTE_APP_ID_DISINI"
+};
+
+let db = null;
+const hasClaudeStorage = () => (typeof window.storage !== 'undefined' && window.storage);
+if(!hasClaudeStorage() && firebaseConfig.apiKey && firebaseConfig.apiKey !== "PASTE_API_KEY_DISINI"){
+  try{
+    firebase.initializeApp(firebaseConfig);
+    db = firebase.firestore();
+  }catch(e){ console.error('Firebase init gagal:', e); }
+}
+
+/* ---------------- Storage helpers ---------------- */
+async function storeGet(key, fallback){
+  try{
+    if(hasClaudeStorage()){
+      const r = await window.storage.get(key, true);
+      return r ? JSON.parse(r.value) : fallback;
+    }
+    if(db){
+      const doc = await db.collection('presensi_data').doc(key).get();
+      return doc.exists ? JSON.parse(doc.data().value) : fallback;
+    }
+    console.warn('Belum ada penyimpanan aktif. Isi firebaseConfig kalau website ini di-hosting sendiri.');
+    return fallback;
+  }catch(e){ console.error(e); return fallback; }
+}
+async function storeSet(key, value){
+  try{
+    if(hasClaudeStorage()){
+      await window.storage.set(key, JSON.stringify(value), true);
+      return;
+    }
+    if(db){
+      await db.collection('presensi_data').doc(key).set({ value: JSON.stringify(value) });
+      return;
+    }
+    console.warn('Belum ada penyimpanan aktif. Isi firebaseConfig kalau website ini di-hosting sendiri.');
+  }catch(e){ console.error(e); }
+}
+
+/* ---------------- State ---------------- */
+let classes = [];
+let records = [];
+let currentClassId = null;
+let tokenState = {}; // classId -> {token, expiresAt}
+let qrRotateTimer = null;
+let tokenTickTimer = null;
+let html5Qr = null;
+let pendingClassLocation = null; // {lat, lng} captured while creating a class
+
+const DOW_NAMES = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
+
+function todayStr(){
+  const d = new Date();
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+/* ---------------- Geolocation helpers ---------------- */
+function getPosition(){
+  return new Promise((resolve, reject)=>{
+    if(!navigator.geolocation){ reject(new Error('Perangkat tidak mendukung lokasi.')); return; }
+    navigator.geolocation.getCurrentPosition(
+      pos => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      err => reject(err),
+      { enableHighAccuracy:true, timeout:10000 }
+    );
+  });
+}
+function haversineMeters(lat1,lng1,lat2,lng2){
+  const R = 6371000;
+  const toRad = d => d * Math.PI/180;
+  const dLat = toRad(lat2-lat1);
+  const dLng = toRad(lng2-lng1);
+  const a = Math.sin(dLat/2)**2 + Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLng/2)**2;
+  return 2 * R * Math.asin(Math.sqrt(a));
+}
+async function captureClassLocation(){
+  const statusEl = document.getElementById('locationStatus');
+  statusEl.textContent = 'Meminta izin lokasi...';
+  try{
+    pendingClassLocation = await getPosition();
+    statusEl.textContent = `Lokasi kelas tersimpan (${pendingClassLocation.lat.toFixed(5)}, ${pendingClassLocation.lng.toFixed(5)}) — geofencing akan aktif.`;
+  }catch(e){
+    pendingClassLocation = null;
+    statusEl.textContent = 'Gagal mengambil lokasi. Izinkan akses lokasi di browser lalu coba lagi.';
+  }
+}
+
+/* ---------------- Status per tanggal (untuk tren & kalender) ---------------- */
+function dateStrOffset(daysAgo){
+  const d = new Date();
+  d.setDate(d.getDate()-daysAgo);
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+function isScheduledDay(cls, dStr){
+  if(!cls.days || !cls.days.length) return true; // no schedule set = every day counts
+  const dow = new Date(dStr+'T00:00:00').getDay();
+  return cls.days.includes(dow);
+}
+function getStatusForDate(cls, nim, dStr){
+  const rec = records.find(r=>r.classId===cls.id && r.date===dStr && r.nim===nim);
+  if(rec) return rec.status; // 'Hadir' or 'Telat'
+  if(!isScheduledDay(cls, dStr)) return null; // not applicable
+  if(dStr === todayStr()) return 'Pending';
+  if(dStr > todayStr()) return null;
+  return 'Alpha';
+}
+
+function renderTrend(){
+  const cls = classes.find(c=>c.id===currentClassId);
+  const wrap = document.getElementById('trendChart');
+  if(!cls){ wrap.innerHTML=''; return; }
+  const rosterCount = (cls.roster && cls.roster.length) || 0;
+  const days14 = Array.from({length:14}, (_,i)=>dateStrOffset(13-i)).filter(d=>isScheduledDay(cls,d) && d <= todayStr());
+  if(!days14.length){ wrap.innerHTML = '<div class="empty-note">Belum ada hari terjadwal dalam 14 hari terakhir.</div>'; return; }
+  const maxVal = Math.max(rosterCount, 1);
+  wrap.innerHTML = days14.map(d=>{
+    const todays = records.filter(r=>r.classId===cls.id && r.date===d);
+    const hadir = todays.filter(r=>r.status==='Hadir').length;
+    const telat = todays.filter(r=>r.status==='Telat').length;
+    const alpha = d===todayStr() ? 0 : Math.max(rosterCount - hadir - telat, 0);
+    const hPct = (hadir/maxVal)*100, tPct=(telat/maxVal)*100, aPct=(alpha/maxVal)*100;
+    const label = new Date(d+'T00:00:00').toLocaleDateString('id-ID',{day:'2-digit',month:'2-digit'});
+    return `<div class="trend-col">
+      <div class="trend-bar" style="height:${Math.max(hPct+tPct+aPct,4)}%;">
+        <div class="seg-alpha" style="height:${aPct}%"></div>
+        <div class="seg-telat" style="height:${tPct}%"></div>
+        <div class="seg-hadir" style="height:${hPct}%"></div>
+      </div>
+      <div class="trend-label">${label}</div>
+    </div>`;
+  }).join('');
+}
+
+function renderCalendarGrid(containerId, classId, nim){
+  const cls = classes.find(c=>c.id===classId);
+  const wrap = document.getElementById(containerId);
+  if(!cls || !nim){ wrap.innerHTML=''; return; }
+  const now = new Date();
+  const year = now.getFullYear(), month = now.getMonth();
+  const firstDow = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month+1, 0).getDate();
+  let html = `<div style="font-size:12.5px;color:var(--ink-soft);margin-bottom:6px;">${now.toLocaleDateString('id-ID',{month:'long',year:'numeric'})} — ${cls.name}</div>`;
+  html += '<div class="cal-grid">';
+  ['M','S','S','R','K','J','S'].forEach(d=> html += `<div class="cal-dow">${d}</div>`);
+  for(let i=0;i<firstDow;i++) html += '<div class="cal-cell blank"></div>';
+  for(let day=1; day<=daysInMonth; day++){
+    const dStr = year+'-'+String(month+1).padStart(2,'0')+'-'+String(day).padStart(2,'0');
+    const status = getStatusForDate(cls, nim, dStr);
+    let cls2 = 'na';
+    if(status==='Hadir') cls2='hadir';
+    else if(status==='Telat') cls2='telat';
+    else if(status==='Alpha') cls2='alpha';
+    else if(status==='Pending') cls2='pending';
+    html += `<div class="cal-cell ${cls2}" title="${dStr}: ${status||'Bukan jadwal'}">${day}</div>`;
+  }
+  html += '</div>';
+  html += `<div class="legend" style="margin-top:10px;">
+    <span><i style="background:var(--green)"></i>Hadir</span>
+    <span><i style="background:var(--gold)"></i>Telat</span>
+    <span><i style="background:var(--rust)"></i>Alpha</span>
+    <span><i style="background:var(--paper-deep);border:1px solid var(--rule)"></i>Bukan jadwal</span>
+  </div>`;
+  wrap.innerHTML = html;
+}
+
+function renderDosenCalendar(){
+  const nim = document.getElementById('dosenCalNim').value.trim();
+  if(!nim){ document.getElementById('dosenCalWrap').innerHTML = '<div class="empty-note">Masukkan NIM dahulu.</div>'; return; }
+  renderCalendarGrid('dosenCalWrap', currentClassId, nim);
+}
+
+function uid(){ return Math.random().toString(36).slice(2,9); }
+function randToken(){ return Math.random().toString(36).slice(2,8).toUpperCase(); }
+
+document.getElementById('todayLabel').textContent = new Date().toLocaleDateString('id-ID',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+
+/* ---------------- Tabs ---------------- */
+document.querySelectorAll('.tab-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+    document.getElementById('panel-'+btn.dataset.tab).classList.add('active');
+    document.getElementById('mastheadTitle').textContent = btn.dataset.tab === 'dosen' ? 'Ruang Dosen' : 'Ruang Mahasiswa';
+    if(btn.dataset.tab === 'mahasiswa') populateStudentClassSelect();
+  });
+});
+
+/* ---------------- Init ---------------- */
+async function init(){
+  classes = await storeGet('classes', []);
+  records = await storeGet('attendance_records', []);
+  renderClassIndex();
+  populateStudentClassSelect();
+  if(classes.length){
+    currentClassId = classes[0].id;
+    showClassArea();
+  }
+  // poll for live updates so multiple devices stay in sync
+  setInterval(async ()=>{
+    records = await storeGet('attendance_records', []);
+    if(document.getElementById('panel-dosen').classList.contains('active')) renderTable();
+  }, 4000);
+}
+
+/* ---------------- Class management ---------------- */
+function renderClassIndex(){
+  const wrap = document.getElementById('classIndex');
+  wrap.innerHTML = '';
+  classes.forEach(c=>{
+    const chip = document.createElement('div');
+    chip.className = 'class-chip' + (c.id === currentClassId ? ' active' : '');
+    chip.textContent = c.name + ' · ' + c.rombel;
+    chip.onclick = ()=>{ currentClassId = c.id; renderClassIndex(); showClassArea(); };
+    wrap.appendChild(chip);
+  });
+  const addChip = document.createElement('div');
+  addChip.className = 'class-chip add';
+  addChip.textContent = '+ Kelas Baru';
+  addChip.onclick = ()=>toggleNewClass(true);
+  wrap.appendChild(addChip);
+
+  document.getElementById('dosenEmptyState').style.display = classes.length ? 'none' : 'block';
+}
+
+function toggleNewClass(show){
+  document.getElementById('newClassCard').style.display = show ? 'block' : 'none';
+}
+
+function fillSampleRoster(){
+  const sample = [
+    ['24105111002','ZIKRUL KHALIS'],['24105111005','SARAH NASYIFA'],['24105111023','FAJIRA'],
+    ['24105111029','ZIRA ZAHIRA'],['24105111068','SARATUL AMNA'],['24105111120','MUHAMMAD RAYYAN'],
+    ['24105111121','T. IKHYAR FIRDAUSI'],['24105111122','MUHAMMAD ALWI'],['24105111123','HAFIZH FAHREZI'],
+    ['24105111125','RAUDHATUL JANNAH'],['24105111127','TAMA RACHIDI'],['24105111128','TEUKU ZAKI IRFAN'],
+    ['24105111129','SINTIA ATTAHIRA'],['24105111132','INTAN SURYA'],['24105111133','SAFRINA'],
+    ['24105111135','CUT PUTRI BALKIS'],['24105111139','MUHAMMAD RAIS'],['24105111140','MUHAMMAD ALAIDINSYAH'],
+    ['24105111141','MUHAMMAD RAFI'],['24105111143','BADRATUL NAFIS'],['24105111144','NIA MAULINA'],
+    ['24105111146','AL FASYIMI'],['24105111147','ALDI'],['24105111148','M. INDRA NURULLAH'],
+    ['24105111150','KHANSA AIKA ALIYYAH.S'],['24105111151','KHAIRUL MUNAWAR'],['24105111155','DILLA NUR PUSPITA']
+  ];
+  document.getElementById('newClassRoster').value = sample.map(r=>r.join(', ')).join('\n');
+}
+
+function parseRoster(text){
+  return text.split('\n').map(line=>line.trim()).filter(Boolean).map(line=>{
+    const parts = line.split(/,|\t/).map(s=>s.trim());
+    return { nim: parts[0]||'', name: (parts[1]||'').toUpperCase() };
+  }).filter(r=>r.nim);
+}
+
+async function createClass(){
+  const name = document.getElementById('newClassName').value.trim();
+  const rombel = document.getElementById('newClassRombel').value.trim();
+  const start = document.getElementById('newClassStart').value;
+  const tolerance = parseInt(document.getElementById('newClassTolerance').value || '0', 10);
+  const roster = parseRoster(document.getElementById('newClassRoster').value || '');
+  const days = Array.from(document.querySelectorAll('#dayPicker input:checked')).map(el=>parseInt(el.value,10));
+  const radius = parseInt(document.getElementById('newClassRadius').value || '100', 10);
+  if(!name || !rombel){ alert('Isi nama mata kuliah dan kelas terlebih dahulu.'); return; }
+  const location = pendingClassLocation ? { lat: pendingClassLocation.lat, lng: pendingClassLocation.lng, radius } : null;
+  const c = { id: uid(), name, rombel, start, tolerance, roster, days, location };
+  classes.push(c);
+  await storeSet('classes', classes);
+  document.getElementById('newClassName').value = '';
+  document.getElementById('newClassRombel').value = '';
+  document.getElementById('newClassRoster').value = '';
+  document.querySelectorAll('#dayPicker input').forEach(el=>el.checked=false);
+  document.getElementById('newClassRadius').value = '100';
+  document.getElementById('locationStatus').textContent = 'Lokasi belum diatur (geofencing nonaktif)';
+  pendingClassLocation = null;
+  toggleNewClass(false);
+  currentClassId = c.id;
+  renderClassIndex();
+  showClassArea();
+  populateStudentClassSelect();
+}
+
+function showClassArea(){
+  document.getElementById('dosenClassArea').style.display = currentClassId ? 'block' : 'none';
+  if(!currentClassId) return;
+  startTokenRotation();
+  renderScheduleBanner();
+  renderTrend();
+  document.getElementById('dosenCalWrap').innerHTML = '';
+  renderTable();
+}
+
+function renderScheduleBanner(){
+  const cls = classes.find(c=>c.id===currentClassId);
+  const el = document.getElementById('scheduleBanner');
+  if(!cls || !cls.days || !cls.days.length){ el.innerHTML = ''; return; }
+  const todayDow = new Date().getDay();
+  const scheduleNames = cls.days.map(d=>DOW_NAMES[d]).join(', ');
+  if(cls.days.includes(todayDow)){
+    el.innerHTML = `<div class="banner ok">Hari ini (${DOW_NAMES[todayDow]}) sesuai jadwal kelas ini. Jadwal: ${scheduleNames}.</div>`;
+  }else{
+    el.innerHTML = `<div class="banner">⚠ Hari ini (${DOW_NAMES[todayDow]}) bukan jadwal kelas ini. Jadwal terdaftar: ${scheduleNames}.</div>`;
+  }
+}
+
+/* ---------------- Dynamic QR / token rotation ---------------- */
+async function startTokenRotation(){
+  if(qrRotateTimer) clearInterval(qrRotateTimer);
+  if(tokenTickTimer) clearInterval(tokenTickTimer);
+  await rotateToken();
+  qrRotateTimer = setInterval(rotateToken, 15000);
+  let remaining = 15;
+  tokenTickTimer = setInterval(()=>{
+    remaining -= 1;
+    if(remaining < 0) remaining = 15;
+    document.getElementById('tokenTimer').textContent = 'QR aktif ' + remaining + ' detik lagi';
+    document.getElementById('tokenBarFill').style.width = ((remaining/15)*100) + '%';
+  }, 1000);
+}
+
+async function rotateToken(){
+  const token = randToken();
+  const now = Date.now();
+  const newEntry = { token, expiresAt: now + 20000 }; // valid ~20 detik sejak dibuat
+  const prevTokens = (tokenState[currentClassId] && tokenState[currentClassId].tokens) || [];
+  const tokens = [newEntry, ...prevTokens].filter(t => now <= t.expiresAt).slice(0, 3);
+  tokenState[currentClassId] = { tokens, date: todayStr() };
+  await storeSet('token_' + currentClassId, tokenState[currentClassId]);
+  const payload = JSON.stringify({ c: currentClassId, d: todayStr(), t: token });
+  const qrEl = document.getElementById('qrcode');
+  qrEl.innerHTML = '';
+  new QRCode(qrEl, { text: payload, width: 200, height: 200, colorDark:'#1F3A5F', colorLight:'#ffffff' });
+  document.getElementById('fallbackCode').textContent = token;
+  renderStats();
+}
+
+/* ---------------- Attendance verification ---------------- */
+async function verifyAndRecord(classId, date, token, nim, name, jurusan, loc){
+  const stored = await storeGet('token_' + classId, null);
+  if(!stored || stored.date !== date || !stored.tokens || !stored.tokens.length){
+    return { ok:false, msg:'Sesi presensi belum dimulai atau QR belum ditampilkan dosen.' };
+  }
+  const nowTs = Date.now();
+  const match = stored.tokens.find(t => t.token === token);
+  if(!match){
+    return { ok:false, msg:'Kode salah. Pastikan kamu memasukkan kode yang sedang tampil di layar dosen.' };
+  }
+  if(nowTs > match.expiresAt){
+    return { ok:false, msg:'Kode sudah kedaluwarsa. Minta dosen menampilkan QR/kode terbaru.' };
+  }
+  records = await storeGet('attendance_records', []);
+  const dup = records.find(r=>r.classId===classId && r.date===date && r.nim===nim);
+  if(dup){ return { ok:false, msg:'Kamu sudah tercatat hadir untuk sesi ini.' }; }
+
+  const cls = classes.find(c=>c.id===classId) || (await storeGet('classes', [])).find(c=>c.id===classId);
+
+  if(cls && cls.location){
+    if(!loc){
+      return { ok:false, msg:'Kelas ini mewajibkan verifikasi lokasi. Izinkan akses lokasi HP kamu lalu coba lagi.' };
+    }
+    const dist = haversineMeters(loc.lat, loc.lng, cls.location.lat, cls.location.lng);
+    if(dist > cls.location.radius){
+      return { ok:false, msg:`Kamu berada sekitar ${Math.round(dist)} meter dari lokasi kelas (maks ${cls.location.radius} meter). Absen ditolak.` };
+    }
+  }
+
+  const now = new Date();
+  let status = 'Hadir';
+  if(cls && cls.start){
+    const [h,m] = cls.start.split(':').map(Number);
+    const startDate = new Date(now); startDate.setHours(h,m,0,0);
+    const deadline = new Date(startDate.getTime() + (cls.tolerance||0)*60000);
+    if(now > deadline) status = 'Telat';
+  }
+  const rec = {
+    id: uid(), classId, date,
+    nim, name, jurusan,
+    time: now.toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit',second:'2-digit'}),
+    ts: now.getTime(),
+    status,
+    className: cls ? (cls.name + ' · ' + cls.rombel) : ''
+  };
+  records.push(rec);
+  await storeSet('attendance_records', records);
+  return { ok:true, msg: 'Berhasil dicatat sebagai ' + status + ' pukul ' + rec.time + '.' };
+}
+
+/* ---------------- Dosen: stats + table ---------------- */
+function renderStats(){
+  const today = todayStr();
+  const todays = records.filter(r=>r.classId===currentClassId && r.date===today);
+  const hadir = todays.filter(r=>r.status==='Hadir').length;
+  const telat = todays.filter(r=>r.status==='Telat').length;
+  const total = todays.length;
+  document.getElementById('statsRow').innerHTML = `
+    <div class="stat"><div class="num">${total}</div><div class="lbl">Total Absen</div></div>
+    <div class="stat hadir"><div class="num">${hadir}</div><div class="lbl">Hadir</div></div>
+    <div class="stat telat"><div class="num">${telat}</div><div class="lbl">Telat</div></div>
+    <div class="stat"><div class="num">${total ? Math.round((hadir/total)*100) : 0}%</div><div class="lbl">Tepat Waktu</div></div>
+  `;
+}
+
+function renderNotYet(){
+  const cls = classes.find(c=>c.id===currentClassId);
+  const wrap = document.getElementById('notYetList');
+  if(!cls || !cls.roster || !cls.roster.length){
+    wrap.innerHTML = '<div class="empty-note">Belum ada daftar mahasiswa untuk kelas ini.</div>';
+    return;
+  }
+  const today = todayStr();
+  const presentNims = new Set(records.filter(r=>r.classId===currentClassId && r.date===today).map(r=>r.nim));
+  const notYet = cls.roster.filter(r=>!presentNims.has(r.nim));
+  if(!notYet.length){ wrap.innerHTML = '<div class="empty-note">Semua mahasiswa sudah absen hari ini.</div>'; return; }
+  wrap.innerHTML = `<div style="font-size:12.5px;color:var(--ink-soft);margin-bottom:8px;">${notYet.length} dari ${cls.roster.length} mahasiswa belum absen</div>` +
+    notYet.map(r=>`<div class="history-item"><span>${r.nim}</span><span>${r.name}</span></div>`).join('');
+}
+
+function renderTable(){
+  if(!currentClassId) return;
+  renderStats();
+  renderNotYet();
+  const today = todayStr();
+  const q = (document.getElementById('searchInput').value || '').toLowerCase();
+  let todays = records.filter(r=>r.classId===currentClassId && r.date===today);
+  if(q) todays = todays.filter(r=> r.nim.toLowerCase().includes(q) || r.name.toLowerCase().includes(q));
+  todays.sort((a,b)=>b.ts-a.ts);
+  const body = document.getElementById('tableBody');
+  body.innerHTML = todays.map(r=>`
+    <tr>
+      <td>${r.time}</td>
+      <td>${r.nim}</td>
+      <td>${r.name}</td>
+      <td>${r.jurusan||'-'}</td>
+      <td><span class="badge ${r.status==='Hadir'?'hadir':'telat'}">${r.status}</span></td>
+    </tr>
+  `).join('');
+  document.getElementById('tableEmpty').style.display = todays.length ? 'none' : 'block';
+}
+
+async function resetSessionToday(){
+  if(!confirm('Hapus semua data presensi hari ini untuk kelas ini?')) return;
+  const today = todayStr();
+  records = records.filter(r=>!(r.classId===currentClassId && r.date===today));
+  await storeSet('attendance_records', records);
+  renderTable();
+}
+
+function exportCSV(){
+  const today = todayStr();
+  const todays = records.filter(r=>r.classId===currentClassId && r.date===today);
+  const cls = classes.find(c=>c.id===currentClassId);
+  let csv = 'NIM,Nama,Jurusan,Jam,Status\n';
+  todays.forEach(r=>{ csv += `${r.nim},${r.name},${r.jurusan||''},${r.time},${r.status}\n`; });
+  const blob = new Blob([csv], {type:'text/csv'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `presensi_${cls?cls.name.replace(/\s+/g,'_'):'kelas'}_${today}.csv`;
+  a.click();
+}
+
+/* ---------------- Mahasiswa panel ---------------- */
+function populateStudentClassSelect(){
+  const sel = document.getElementById('studentClassSelect');
+  sel.innerHTML = classes.map(c=>`<option value="${c.id}">${c.name} · ${c.rombel}</option>`).join('');
+  updateGeoNote();
+}
+function onStudentClassChange(){
+  autoFillNameFromRoster();
+  updateGeoNote();
+}
+function updateGeoNote(){
+  const cls = classes.find(c=>c.id===document.getElementById('studentClassSelect').value);
+  const note = document.getElementById('geoRequirementNote');
+  if(cls && cls.location){
+    note.textContent = `📍 Kelas ini mewajibkan verifikasi lokasi (radius ${cls.location.radius} meter). Izinkan akses lokasi saat diminta.`;
+  }else{
+    note.textContent = '';
+  }
+}
+function autoFillNameFromRoster(){
+  const classId = document.getElementById('studentClassSelect').value;
+  const nim = document.getElementById('stuNim').value.trim();
+  const cls = classes.find(c=>c.id===classId);
+  const nameInput = document.getElementById('stuName');
+  if(cls && cls.roster && nim){
+    const found = cls.roster.find(r=>r.nim===nim);
+    if(found){ nameInput.value = found.name; nameInput.style.background = 'var(--green-soft)'; return; }
+  }
+  nameInput.style.background = '#fff';
+}
+document.getElementById('stuNim').addEventListener('input', autoFillNameFromRoster);
+
+function showScanStatus(ok, msg){
+  const el = document.getElementById('scanStatus');
+  el.className = 'scan-status ' + (ok ? 'ok' : 'err');
+  el.textContent = msg;
+}
+
+function getStudentInputs(){
+  return {
+    nim: document.getElementById('stuNim').value.trim(),
+    name: document.getElementById('stuName').value.trim(),
+    jurusan: document.getElementById('stuJurusan').value.trim(),
+    classId: document.getElementById('studentClassSelect').value
+  };
+}
+
+async function startScan(){
+  const { nim, name, classId } = getStudentInputs();
+  if(!nim || !name || !classId){ showScanStatus(false, 'Isi NIM, nama, dan pilih mata kuliah dahulu.'); return; }
+  document.getElementById('startScanBtn').style.display = 'none';
+  document.getElementById('stopScanBtn').style.display = 'inline-block';
+  html5Qr = new Html5Qrcode('reader');
+  try{
+    await html5Qr.start(
+      { facingMode: 'environment' },
+      { fps: 10, qrbox: 220 },
+      onScanSuccess,
+      ()=>{}
+    );
+  }catch(e){
+    showScanStatus(false, 'Tidak bisa mengakses kamera. Gunakan kode cadangan di bawah.');
+    stopScan();
+  }
+}
+
+async function stopScan(){
+  document.getElementById('startScanBtn').style.display = 'inline-block';
+  document.getElementById('stopScanBtn').style.display = 'none';
+  if(html5Qr){
+    try{ await html5Qr.stop(); html5Qr.clear(); }catch(e){}
+    html5Qr = null;
+  }
+}
+
+async function requireLocationIfNeeded(classId){
+  const cls = classes.find(c=>c.id===classId);
+  if(!cls || !cls.location) return { needed:false, loc:null };
+  showScanStatus(true, 'Meminta izin lokasi HP kamu...');
+  try{
+    const loc = await getPosition();
+    return { needed:true, loc, error:null };
+  }catch(e){
+    return { needed:true, loc:null, error:'Kamu wajib mengizinkan akses lokasi untuk absen di kelas ini. Aktifkan izin lokasi di browser lalu coba lagi.' };
+  }
+}
+
+async function onScanSuccess(decodedText){
+  let payload;
+  try{ payload = JSON.parse(decodedText); }catch(e){ return; }
+  const { nim, name, jurusan, classId } = getStudentInputs();
+  if(payload.c !== classId){
+    showScanStatus(false, 'QR ini bukan untuk mata kuliah yang kamu pilih.');
+    return;
+  }
+  await stopScan();
+  const geo = await requireLocationIfNeeded(classId);
+  if(geo.needed && geo.error){ showScanStatus(false, geo.error); return; }
+  const res = await verifyAndRecord(payload.c, payload.d, payload.t, nim, name, jurusan, geo.loc);
+  showScanStatus(res.ok, res.msg);
+  if(res.ok) renderStudentCalendar();
+}
+
+async function submitManualCode(){
+  const { nim, name, jurusan, classId } = getStudentInputs();
+  const code = document.getElementById('manualCode').value.trim().toUpperCase();
+  if(!nim || !name || !classId){ showScanStatus(false, 'Isi NIM, nama, dan pilih mata kuliah dahulu.'); return; }
+  if(!code){ showScanStatus(false, 'Masukkan kode cadangan.'); return; }
+  const geo = await requireLocationIfNeeded(classId);
+  if(geo.needed && geo.error){ showScanStatus(false, geo.error); return; }
+  const res = await verifyAndRecord(classId, todayStr(), code, nim, name, jurusan, geo.loc);
+  showScanStatus(res.ok, res.msg);
+  if(res.ok) renderStudentCalendar();
+}
+
+function renderStudentCalendar(){
+  const classId = document.getElementById('studentClassSelect').value;
+  const nim = document.getElementById('stuNim').value.trim();
+  if(classId && nim) renderCalendarGrid('studentCalWrap', classId, nim);
+}
+
+async function loadHistory(){
+  const nim = document.getElementById('historyNim').value.trim();
+  const list = document.getElementById('historyList');
+  if(!nim){ list.innerHTML = ''; return; }
+  document.getElementById('stuNim').value = document.getElementById('stuNim').value || nim;
+  records = await storeGet('attendance_records', []);
+  const mine = records.filter(r=>r.nim===nim).sort((a,b)=>b.ts-a.ts);
+  if(!mine.length){ list.innerHTML = '<div class="empty-note">Belum ada riwayat untuk NIM ini.</div>'; }
+  else{
+    list.innerHTML = mine.map(r=>`
+      <div class="history-item">
+        <span>${r.date} · ${r.className}</span>
+        <span class="badge ${r.status==='Hadir'?'hadir':'telat'}">${r.status}</span>
+      </div>
+    `).join('');
+  }
+  const classId = document.getElementById('studentClassSelect').value;
+  if(classId) renderCalendarGrid('studentCalWrap', classId, nim);
+}
+
+init();
+</script>
+</body>
+</html>
